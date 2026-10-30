@@ -10,6 +10,24 @@ export function loadDotEnv(path = '.env'): void {
   }
 }
 
+export interface NumberRule {
+  min?: number;
+  max?: number;
+  integer?: boolean;
+}
+
+/** Convertit une chaîne en nombre en respectant les bornes ; lève une erreur explicite sinon. */
+export function parseNumber(name: string, raw: string, rule: NumberRule = {}): number {
+  const { min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER, integer = false } = rule;
+  const value = Number(raw);
+  const typeOk = integer ? Number.isInteger(value) : Number.isFinite(value);
+  if (raw.trim() === '' || !typeOk || value < min || value > max) {
+    const kind = integer ? 'entier' : 'nombre';
+    throw new Error(`Paramètre ${name} invalide : "${raw}" (${kind} attendu entre ${min} et ${max})`);
+  }
+  return value;
+}
+
 /** Lit un entier depuis l'environnement, avec valeur par défaut et bornes. */
 export function readInt(
   env: NodeJS.ProcessEnv,
@@ -20,11 +38,7 @@ export function readInt(
 ): number {
   const raw = env[name];
   if (raw === undefined || raw.trim() === '') return defaultValue;
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < min || value > max) {
-    throw new Error(`Variable ${name} invalide : "${raw}" (entier attendu entre ${min} et ${max})`);
-  }
-  return value;
+  return parseNumber(name, raw, { min, max, integer: true });
 }
 
 /** Lit une chaîne depuis l'environnement, avec valeur par défaut. */

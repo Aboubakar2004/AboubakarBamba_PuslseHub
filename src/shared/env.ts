@@ -41,6 +41,19 @@ export function readInt(
   return parseNumber(name, raw, { min, max, integer: true });
 }
 
+/** Lit un nombre (décimal autorisé) depuis l'environnement, avec valeur par défaut et bornes. */
+export function readNumber(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  defaultValue: number,
+  min = Number.MIN_SAFE_INTEGER,
+  max = Number.MAX_SAFE_INTEGER,
+): number {
+  const raw = env[name];
+  if (raw === undefined || raw.trim() === '') return defaultValue;
+  return parseNumber(name, raw, { min, max });
+}
+
 /** Lit une chaîne depuis l'environnement, avec valeur par défaut. */
 export function readString(env: NodeJS.ProcessEnv, name: string, defaultValue: string): string {
   const raw = env[name];

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PulseHub — Régie</title>
+  <style>
+    /* Style volontairement minimal. Statut = couleur + icône + libellé, jamais la couleur seule. */
+    body { font-family: system-ui, sans-serif; margin: 20px; color: #222; font-variant-numeric: tabular-nums; }
+    header { display: flex; justify-content: space-between; align-items: baseline; }
+    h1 { font-size: 20px; margin: 0; }
+    .meta span { margin-left: 16px; }
+    h2 { font-size: 15px; margin: 20px 0 8px; }
+    .tiles, .reception, .grid { display: grid; gap: 8px; }
+    .tiles { grid-template-columns: repeat(4, 1fr); }
+    .reception { grid-template-columns: repeat(8, 1fr); }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .columns { display: grid; grid-template-columns: 1fr 3fr; gap: 20px; }
+    .tile, .stat, .card, .watch-item { border: 1px solid #ddd; padding: 8px; }
+    .tile, .card, .watch-item { border-left: 4px solid var(--c); }
+    .tile .value { font-size: 32px; font-weight: bold; }
+    .stat .value { font-size: 18px; font-weight: bold; }
+    .label, .sub, .why, .reasons, .empty { color: #666; font-size: 13px; }
+    .watch-item { margin-bottom: 6px; }
+    .top { display: flex; justify-content: space-between; }
+    .temp { font-size: 18px; font-weight: bold; }
+    .badge { color: var(--c); font-weight: bold; font-size: 12px; }
+    .icon { color: var(--c); margin-right: 4px; }
+    .card.SILENT { color: #999; }
+    .conn.on { color: #0a7d0a; }
+    .conn.off { color: #c62828; }
+    .OK { --c: #0a7d0a; }
+    .WARNING { --c: #d48806; }
+    .CRITICAL { --c: #c62828; }
+    .SILENT { --c: #888; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PulseHub — Régie</h1>
+    <div class="meta">
+      <span id="conn" class="conn off">● Déconnecté</span>
+      <span>Hub actif depuis <strong id="uptime">0:00:00</strong></span>
+    </div>
+  </header>
+
+  <main>
+    <section aria-label="État de la flotte">
+      <h2>Flotte · <span id="device-count">0</span> appareils</h2>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section aria-label="Santé de la réception">
+      <h2>Réception</h2>
+      <div class="reception" id="reception"></div>
+      <div class="reasons" id="reasons"></div>
+    </section>
+
+    <div class="columns">
+      <section aria-label="Appareils à surveiller">
+        <h2>À surveiller</h2>
+        <div class="watch" id="watch"></div>
+      </section>
+      <section aria-label="Tous les appareils">
+        <h2>Appareils</h2>
+        <div class="grid" id="grid"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    // La page ne calcule rien : elle affiche la synthèse reçue du hub.
+    const STATUS = {
+      OK: { icon: '●', label: 'OK' },
+      WARNING: { icon: '▲', label: 'Chaud' },
+      CRITICAL: { icon: '✖', label: 'Critique' },
+      SILENT: { icon: '⏸', label: 'Muet' },
+    };
+    const SEVERITY = { SILENT: 0, CRITICAL: 1, WARNING: 2, OK: 3 };
+    const REASONS = {
+      TOO_SHORT: 'trop courte', TOO_LONG: 'trop longue', BAD_MAGIC: 'magic', BAD_VERSION: 'version',
+      UNKNOWN_TYPE: 'type inconnu', BAD_LENGTH: 'longueur', BAD_CHECKSUM: 'checksum',
+      BAD_DEVICE_ID: 'deviceId', HEARTBEAT_WITH_MEASUREMENTS: 'heartbeat avec mesures', UNKNOWN_METRIC: 'métrique inconnue',
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const fmtInt = (n) => n.toLocaleString('fr-FR');
+    const fmt = (n, digits, unit) => (n === null ? '—' : `${n.toFixed(digits).replace('.', ',')} ${unit}`);
+    const duration = (ms) => {
+      const s = Math.floor(ms / 1000);
+      return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    };
+    const badge = (status) => `<span class="badge ${status}">${STATUS[status].icon} ${STATUS[status].label}</span>`;
+
+    function render(summary) {
+      const { reception: r, fleet: f } = summary;
+      $('uptime').textContent = duration(summary.hubUptimeMs);
+      $('device-count').textContent = f.deviceCount;
+
+      $('tiles').innerHTML = ['OK', 'WARNING', 'CRITICAL', 'SILENT'].map((s) => `
+        <div class="tile ${s}">
+          <div class="label"><span class="icon">${STATUS[s].icon}</span>${STATUS[s].label}</div>
+          <div class="value">${f.countByStatus[s]}</div>
+        </div>`).join('');
+
+      const stats = [
+        ['Débit', `${fmtInt(r.framesPerSecond)} /s`],
+        ['Reçues', fmtInt(r.received)],
+        ['Acceptées', fmtInt(r.accepted)],
+        ['Invalides', fmtInt(r.invalid)],
+        ['Perdues', fmtInt(r.lost)],
+        ['Taux de perte', `${r.lossRatePercent.toLocaleString('fr-FR')} %`],
+        ['Doublons · retards', `${fmtInt(r.duplicates)} · ${fmtInt(r.late)}`],
+        ['Valeurs hors limites', fmtInt(f.outOfRangeCount)],
+      ];
+      $('reception').innerHTML = stats.map(([label, value]) =>
+        `<div class="stat"><div class="label">${label}</div><div class="value">${value}</div></div>`).join('');
+      const reasons = Object.entries(r.invalidByReason);
+      $('reasons').textContent = reasons.length === 0 ? '' :
+        'Trames invalides : ' + reasons.map(([k, n]) => `${REASONS[k] ?? k} ${fmtInt(n)}`).join(' · ');
+
+      const watch = f.devices.filter((d) => d.status !== 'OK')
+        .sort((a, b) => SEVERITY[a.status] - SEVERITY[b.status] || a.deviceId - b.deviceId);
+      $('watch').innerHTML = watch.length === 0
+        ? `<div class="empty">${f.deviceCount === 0 ? 'En attente des premières trames…' : 'Rien à signaler.'}</div>`
+        : watch.map((d) => `
+          <div class="watch-item ${d.status}">
+            <div class="head">Appareil ${d.deviceId} ${badge(d.status)}</div>
+            ${d.issues.map((i) => `<div class="why">${esc(i)}</div>`).join('')}
+          </div>`).join('');
+
+      $('grid').innerHTML = f.devices.length === 0
+        ? '<div class="empty">Aucun appareil détecté pour l’instant.</div>'
+        : f.devices.map((d) => `
+          <div class="card ${d.status}" title="${esc([...d.issues, `Perdues : ${d.lost}`, `Hors limites : ${d.outOfRangeCount}`].join('\n'))}">
+            <div class="top"><span class="id">#${d.deviceId}</span>${badge(d.status)}</div>
+            <div class="temp">${fmt(d.temperatureC, 1, '°C')}</div>
+            <div class="sub">${fmt(d.voltageV, 2, 'V')} · ${fmt(d.currentA, 2, 'A')}</div>
+            <div class="sub">${d.status === 'SILENT' ? `muet depuis ${Math.floor(d.silentForMs / 1000)} s` : `pertes ${d.lost}`}</div>
+          </div>`).join('');
+    }
+
+    function connect() {
+      const source = new EventSource('/events');
+      source.onopen = () => { $('conn').className = 'conn on'; $('conn').textContent = '● Connecté'; };
+      source.onmessage = (event) => render(JSON.parse(event.data));
+      // EventSource se reconnecte seul ; on signale juste la coupure à la régie.
+      source.onerror = () => { $('conn').className = 'conn off'; $('conn').textContent = '● Déconnecté'; };
+    }
+    connect();
+  </script>
+</body>
+</html>

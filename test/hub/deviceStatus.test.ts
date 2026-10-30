@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type DeviceReadings, type Thresholds, evaluateStatus } from '../../src/hub/deviceStatus.js';
+import { type DeviceReadings, type Thresholds, evaluateStatus, findIssues } from '../../src/hub/deviceStatus.js';
 
 const thresholds: Thresholds = {
   temperatureWarningC: 60,
@@ -41,5 +41,19 @@ describe('evaluateStatus', () => {
 
   it('OK pour un appareil vivant sans télémétrie (heartbeats seuls)', () => {
     expect(evaluateStatus({ temperatureC: null, voltageV: null, currentA: null }, 0, thresholds)).toBe('OK');
+  });
+});
+
+describe('findIssues', () => {
+  it('explique chaque seuil dépassé avec un message lisible', () => {
+    const issues = findIssues({ temperatureC: 78.04, voltageV: 30, currentA: 2 }, thresholds);
+    expect(issues).toEqual([
+      { severity: 'CRITICAL', message: 'Température 78,0 °C > 75 °C' },
+      { severity: 'CRITICAL', message: 'Tension 30,00 V hors 22–26 V' },
+    ]);
+  });
+
+  it('ne renvoie rien pour des valeurs normales', () => {
+    expect(findIssues(normal, thresholds)).toEqual([]);
   });
 });

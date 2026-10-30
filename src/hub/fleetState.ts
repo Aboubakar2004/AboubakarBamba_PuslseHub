@@ -1,5 +1,12 @@
 import { type Frame, MetricId } from '../protocol/types.js';
-import { type DeviceReadings, type DeviceStatus, type Thresholds, evaluateStatus, isCritical } from './deviceStatus.js';
+import {
+  type DeviceReadings,
+  type DeviceStatus,
+  type Thresholds,
+  evaluateStatus,
+  findIssues,
+  isCritical,
+} from './deviceStatus.js';
 
 export interface DeviceView extends DeviceReadings {
   deviceId: number;
@@ -9,6 +16,8 @@ export interface DeviceView extends DeviceReadings {
   uptimeMs: number;
   /** Nombre de télémétries dont au moins une valeur dépassait un seuil critique. */
   outOfRangeCount: number;
+  /** Explications lisibles du statut (vide si OK). */
+  issues: string[];
 }
 
 export interface FleetSnapshot {
@@ -80,6 +89,10 @@ export class FleetState {
           voltageV: record.voltageV,
           currentA: record.currentA,
           outOfRangeCount: record.outOfRangeCount,
+          issues:
+            status === 'SILENT'
+              ? [`Aucune trame depuis ${Math.floor(silentForMs / 1000)} s`]
+              : findIssues(record, this.thresholds).map((issue) => issue.message),
         };
       });
     return { devices, countByStatus, outOfRangeCount };

@@ -32,6 +32,7 @@ describe('buildSummary', () => {
             voltageV: 24,
             currentA: 2,
             outOfRangeCount: 0,
+            issues: [],
           },
         ],
         countByStatus: { OK: 1, WARNING: 0, CRITICAL: 0, SILENT: 0 },

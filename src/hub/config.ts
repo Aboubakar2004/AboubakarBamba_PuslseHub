@@ -8,6 +8,10 @@ export interface HubConfig {
   /** Nombre de seq récents mémorisés par appareil pour distinguer retards et doublons. */
   sequenceWindow: number;
   thresholds: Thresholds;
+  /** Port HTTP du tableau de bord. */
+  httpPort: number;
+  /** Intervalle d'envoi de la synthèse au navigateur. */
+  dashboardRefreshMs: number;
 }
 
 export function loadHubConfig(env: NodeJS.ProcessEnv): HubConfig {
@@ -30,5 +34,7 @@ export function loadHubConfig(env: NodeJS.ProcessEnv): HubConfig {
     udpPort: readInt(env, 'HUB_PORT', 9000, 1, 65535),
     sequenceWindow: readInt(env, 'HUB_SEQ_WINDOW', 64, 1, 100_000),
     thresholds,
+    httpPort: readInt(env, 'HUB_HTTP_PORT', 3000, 1, 65535),
+    dashboardRefreshMs: readInt(env, 'HUB_DASHBOARD_REFRESH_MS', 500, 50, 60_000),
   };
 }

@@ -1,6 +1,7 @@
 import { decodeFrame } from '../protocol/decoder.js';
 import { loadDotEnv } from '../shared/env.js';
 import { loadHubConfig } from './config.js';
+import { DashboardServer } from './dashboard/dashboardServer.js';
 import { FleetState } from './fleetState.js';
 import { RateMeter } from './rateMeter.js';
 import { ReceptionStats } from './receptionStats.js';
@@ -28,9 +29,6 @@ async function main(): Promise<void> {
       fleet.update(result.frame, now);
     }
   });
-  await receiver.listen(config.udpPort, config.udpHost);
-  console.log(`Hub PulseHub en écoute UDP sur ${config.udpHost}:${config.udpPort} (Ctrl+C pour arrêter)`);
-
   const currentSummary = (): HubSummary => {
     const now = Date.now();
     return buildSummary({
@@ -44,20 +42,14 @@ async function main(): Promise<void> {
     });
   };
 
-  // Affichage provisoire, remplacé par le tableau de bord web à l'étape visualisation.
-  const status = setInterval(() => {
-    const { reception: r, fleet: f } = currentSummary();
-    const c = f.countByStatus;
-    const line =
-      `${r.framesPerSecond}/s · reçues ${r.received} · invalides ${r.invalid} · pertes ${r.lossRatePercent} % · ` +
-      `appareils ${f.deviceCount} : OK ${c.OK} · chauds ${c.WARNING} · critiques ${c.CRITICAL} · muets ${c.SILENT} · ` +
-      `hors limites ${f.outOfRangeCount}`;
-    const width = (process.stdout.columns ?? 120) - 1;
-    process.stdout.write('\r' + line.slice(0, width).padEnd(width));
-  }, 500);
+  const dashboard = new DashboardServer(currentSummary, config.dashboardRefreshMs);
+  await receiver.listen(config.udpPort, config.udpHost);
+  await dashboard.listen(config.httpPort);
+  console.log(`Hub PulseHub en écoute UDP sur ${config.udpHost}:${config.udpPort}`);
+  console.log(`Tableau de bord : http://localhost:${config.httpPort}  (Ctrl+C pour arrêter)`);
 
   process.on('SIGINT', () => {
-    clearInterval(status);
+    dashboard.close();
     receiver.close();
     console.log('\nArrêt du hub.');
     process.exit(0);

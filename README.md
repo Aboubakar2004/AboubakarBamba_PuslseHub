@@ -239,7 +239,7 @@ Outil utilisé : Claude Code (Anthropic), dans VS Code.
 
 - Compréhension du sujet et des notions (UDP, checksum, séquencement).
 - Proposition de l'architecture et du découpage en branches.
-- Génération du code et des tests, relus et validés étape par étape.
+- Génération d'une partie du code et des tests, relus et validés étape par étape.
 - Vérification du fonctionnement (exécution du hub et du simulateur, captures du tableau de bord).
 - Rédaction de ce README.
 

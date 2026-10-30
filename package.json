@@ -1,0 +1,27 @@
+{
+  "name": "pulsehub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hub central de télémétrie UDP (protocole PulseHub v1) et simulateur d'équipements",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "hub": "tsx src/hub/main.ts",
+    "sim": "tsx src/simulator/main.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.13.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^4.1.12"
+  }
+}
